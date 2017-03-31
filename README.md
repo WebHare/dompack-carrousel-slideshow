@@ -6,7 +6,14 @@ Because of this you can drag it using touchdevices and have snapping.
 
 # Usage of CarrouselSlideshow
 
-import * as grid from "dompack-carrousel-slideshow";
+Add to your package.json peerDependencies:
+
+```
+"dompack-carrousel-slideshow": "https://github.com/WebHare/dompack-carrousel-slideshow"
+```
+
+
+import * as CarrouselSlideshow from "dompack-carrousel-slideshow";
 
 Initializing:
 

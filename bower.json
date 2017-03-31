@@ -16,6 +16,6 @@
   ],
   "dependencies": {
     "dompack": "^0.0.1",
-    "dompack-carrousel": ""
+    "dompack-carrousel": "https://github.com/WebHare/dompack-carrousel"
   }
 }
