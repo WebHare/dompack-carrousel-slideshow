@@ -8,8 +8,8 @@
   },
   "author": "B-Lex IT B.V.",
   "license": "MIT",
-  "peerDependencies": {
-    "dompack": "^0.0.1",
-    "dompack-carrousel": "https://github.com/WebHare/dompack-carrousel"
+  "dependencies": {
+    "dompack": "WebHare/dompack",
+    "dompack-carrousel": "https://github.com/WebHare/dompack-carrousel#045d660b2950726e716bdabf6bb8338bc5de812f"
   }
 }
