@@ -1,7 +1,8 @@
+import * as dompack from "dompack";
 import Carrousel from "dompack-carrousel";
 
 
-class CarrouselSlideshow
+export default class CarrouselSlideshow
 {
   constructor(node, options)
   {

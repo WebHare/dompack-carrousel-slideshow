@@ -10,6 +10,6 @@
   "license": "MIT",
   "dependencies": {
     "dompack": "WebHare/dompack",
-    "dompack-carrousel": "https://github.com/WebHare/dompack-carrousel#045d660b2950726e716bdabf6bb8338bc5de812f"
+    "dompack-carrousel": "git+https://github.com/WebHare/dompack-carrousel.git#db1239fbdddd29f34621996cca2f2a0d544beec9"
   }
 }

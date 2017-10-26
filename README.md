@@ -12,8 +12,11 @@ Add to your package.json peerDependencies:
 "dompack-carrousel-slideshow": "https://github.com/WebHare/dompack-carrousel-slideshow"
 ```
 
+At the top of your script:
 
+```
 import * as CarrouselSlideshow from "dompack-carrousel-slideshow";
+```
 
 Initializing:
 
