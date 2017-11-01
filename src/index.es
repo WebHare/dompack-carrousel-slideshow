@@ -2,6 +2,48 @@ import * as dompack from "dompack";
 import Carrousel from "dompack-carrousel";
 
 
+window.__dompack_cslideshow_idx = 0;
+window.__dompack_cslideshows = [];
+
+
+
+let __observer;
+if (window.IntersectionObserver)
+  __observer = new IntersectionObserver(checkSlideshowVisibility);
+
+document.addEventListener("visibilitychange", onDocumentVisibilityChange);
+
+
+function onDocumentVisibilityChange()
+{
+  for(let slideshow of window.__dompack_cslideshows)
+    slideshow.__handleVisibilityChange();
+}
+
+function checkSlideshowVisibility(entries, observer)
+{
+  //console.log("checkSlideshowVisibility");
+  //console.info(entries);
+
+  let visible = [];
+  let invisible = [];
+  for (let entry of entries)
+  {
+    if (entry.isIntersecting)
+      visible.push(entry.target);
+    else
+      invisible.push(entry.target);
+  }
+
+  for(let slideshow of window.__dompack_cslideshows)
+  {
+    slideshow.inviewport = visible.indexOf(slideshow.node) > -1;
+    slideshow.__handleVisibilityChange();
+  }
+}
+
+
+
 export default class CarrouselSlideshow
 {
   constructor(node, options)
@@ -12,13 +54,13 @@ export default class CarrouselSlideshow
       return;
     }
 
-    // FIXME: debug code
-    window.slideshowidx++;
-    this.slideshowidx = window.slideshowidx;
+    window.__dompack_cslideshow_idx++; // used for anonymous this.option.name
+    window.__dompack_cslideshows.push(this);
 
     var domoptions = dompack.getJSONAttribute(node, "data-carrousel-options");
 
     this.node = node;
+    this.inviewport = this.__determineInViewport(node);
     this.lastautoslidetime = null;
     this.scrolling = false;
     this.ignore_scroll = false; // ignore_scroll caused by our own resizes/relayouts
@@ -30,19 +72,23 @@ export default class CarrouselSlideshow
           //, autoplay_staypausedfor        // amount of time to keep frozen after a mouseover
           , transitionDuration:    1500
           , eventPassthrough:      true    // makes vertical scrolling keep on working (however at the moment it can cause textual selections)
-          , jumpbuttons:           ".carrousel__jumpbutton"
+          , jumpbuttons:           ".carrousel__jumpbutton" // FIXME
+          , jumpbutton_selectedclass: "active" // FIXME
+          , buttonprevious:        null
+          , buttonnext:            null
           , debug:                 false
+          , autoresize:            true
+          , name:                  "slideshow" + window.__dompack_cslideshow_idx
           }, domoptions, options);
 
     this.autoplaytimer = null;
 
     this.carrousel = new Carrousel(node
-        , { transitionDuration: this.options.transitionDuration
-          , eventPassthrough:   this.options.eventPassthrough
+        , { transitionDuration:   this.options.transitionDuration
+          , eventPassthrough:     this.options.eventPassthrough
+          , gap:                  0
+          , updateviewportheight: false
           });
-
-    if (this.options.autoplay)
-      this.__applyCurrentAutoplay(this.options.autoplay_initialdelay);
 
     this.jumpbuttonnodes = [];
     if (typeof this.options.jumpbuttons == "string")
@@ -50,8 +96,15 @@ export default class CarrouselSlideshow
     else
       this.jumpbuttonnodes = this.options.jumpbuttons; // assume an array, live nodelist or static nodelist
 
+// ADDME: use tap if in carrousel viewport or click if outside
     for (let idx = 0; idx < this.jumpbuttonnodes.length; idx++)
       this.jumpbuttonnodes[idx].addEventListener("tap", this.__doJumpToSlide.bind(this, idx));
+
+    if (this.options.buttonprevious)
+      this.options.buttonprevious.addEventListener("click", this.__handlePrevButton.bind(this));
+
+    if (this.options.buttonnext)
+      this.options.buttonnext.addEventListener("click", this.__handleNextButton.bind(this));
 
     /*
     // iScroll replacement for "click", for quick response and it won't be triggered during a drag/swipe
@@ -62,8 +115,6 @@ export default class CarrouselSlideshow
 
     this.node.addEventListener("wh:activeslidechange", this.onSlideChange.bind(this));
 
-    document.addEventListener("visibilitychange", this.onDocumentVisibilityChange.bind(this));
-
     // Prevent autoplay overriding user-actions AND the autoscroll to a new slide
     // (such as dragging, flicking, keyboard navigation etc...)
     if(this.carrousel.iscroll)
@@ -71,40 +122,84 @@ export default class CarrouselSlideshow
       this.carrousel.iscroll.on("scrollStart",       this.__onScrollStart.bind(this));
       this.carrousel.iscroll.on("scrollEnd",         this.__onScrollEnd.bind(this));
     }
+
+    if (this.options.autoresize)
+    {
+      console.info("AUTORESIZE enabled");
+      let bindedrefresh = this.relayoutSlides.bind(this);
+      window.addEventListener("resize", bindedrefresh);
+      document.addEventListener("DOMContentLoaded", bindedrefresh); // may help, but at this time the event might already have fired
+      window.addEventListener("load", bindedrefresh); // Fix/workaround Safari reporting the wrong height for the first slide
+    }
+
+    if (__observer)
+      __observer.observe(node);
+
+    if (this.options.autoplay)
+      this.__applyCurrentAutoplay(this.options.autoplay_initialdelay);
+  }
+
+  __determineInViewport(node)
+  {
+    let viewport = document.body.getBoundingClientRect();
+    let viewportheight = viewport.height;
+    let slideshowbounds = node.getBoundingClientRect();
+    return slideshowbounds.bottom >= 0 || slideshowbounds.top <= viewportheight;
+  }
+
+  __handlePrevButton()
+  {
+    this.carrousel.previousSlide();    
+  }
+
+  __handleNextButton()
+  {
+    this.carrousel.nextSlide();
   }
 
   relayoutSlides()
   {
+    console.info("relayoutSlides");
     this.ignore_scroll = true;
     this.carrousel.relayoutSlides();
+    this.carrousel.refresh();
     this.ignore_scroll = false;
   }
 
   refresh()
   {
+    this.relayoutSlides();
+/*
+    console.info("refresh");
     this.ignore_scroll = true;
     this.carrousel.refresh();
     this.ignore_scroll = false;
+*/
   }
 
   onSlideChange(evt)
   {
-    this.jumpbuttonnodes[evt.detail.previousactiveidx].classList.remove("active");
-    this.jumpbuttonnodes[evt.detail.nextactiveidx].classList.add("active");
+    this.jumpbuttonnodes[evt.detail.previousactiveidx].classList.remove(this.options.jumpbutton_selectedclass);
+    this.jumpbuttonnodes[evt.detail.nextactiveidx].classList.add(this.options.jumpbutton_selectedclass);
   }
 
-  onDocumentVisibilityChange(evt)
+  __handleVisibilityChange()
   {
-    if (document.hidden)
+    console.info( this.options.name
+                , "Page visible: "       , !document.hidden
+                , "Slideshow in viewport", this.inviewport
+                );
+
+    if (document.hidden || !this.inviewport)
     {
-      if (this.options.debug)
+      //if (this.options.debug)
         console.log("hidden -> pause");
 
       this.__pauseAutoplay();
     }
     else
     {
-      if (this.options.debug)
+      //if (this.options.debug)
         console.log("visible -> unpause");
 
       if (!this.scrolling)
@@ -138,7 +233,7 @@ export default class CarrouselSlideshow
   __pauseAutoplay()
   {
     if (this.options.debug)
-      console.log("__pauseAutoplay()", this.slideshowidx, this.node);
+      console.log("__pauseAutoplay()", this.options.name, this.node);
     
     clearTimeout(this.autoplaytimer);
     this.autoplaytimer = null;
@@ -147,7 +242,7 @@ export default class CarrouselSlideshow
   __unpauseAutoplay()
   {
     if (this.options.debug)
-      console.log("__unpauseAutoplay()", this.slideshowidx, this.node);
+      console.log("__unpauseAutoplay()", this.options.name, this.node);
 
     this.__applyCurrentAutoplay();
   }
@@ -170,7 +265,7 @@ export default class CarrouselSlideshow
       delay = 0;
 
     //console.log(this.__nextSlideByTimer);
-    if (this.options.autoplay && !document.hidden)
+    if (this.options.autoplay && !document.hidden && this.inviewport)
     {
       if (!this.autoplaytimer)
       {
