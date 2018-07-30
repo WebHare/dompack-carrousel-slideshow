@@ -1,5 +1,5 @@
 import * as dompack from "dompack";
-import Carrousel from "dompack-carrousel";
+import Carrousel from "@webhare/dompack-carrousel";
 
 
 window.__dompack_cslideshow_idx = 0;
@@ -149,7 +149,7 @@ export default class CarrouselSlideshow
 
   __handlePrevButton()
   {
-    this.carrousel.previousSlide();    
+    this.carrousel.previousSlide();
   }
 
   __handleNextButton()
@@ -234,7 +234,7 @@ export default class CarrouselSlideshow
   {
     if (this.options.debug)
       console.log("__pauseAutoplay()", this.options.name, this.node);
-    
+
     clearTimeout(this.autoplaytimer);
     this.autoplaytimer = null;
   }

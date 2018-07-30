@@ -1,5 +1,5 @@
 {
-  "name": "dompack-carrousel-slideshow",
+  "name": "@webhare/dompack-carrousel-slideshow",
   "description": "Slideshow build upon the dompack-carrousel",
   "version": "0.0.1",
   "main": "src/index.es",
@@ -9,7 +9,9 @@
   "author": "B-Lex IT B.V.",
   "license": "MIT",
   "dependencies": {
-    "dompack": "WebHare/dompack",
-    "dompack-carrousel": "git+https://github.com/WebHare/dompack-carrousel.git#2ca58a9ce420382b444e05d3efccb8057a7d072b"
+    "@webhare/dompack-carrousel": "0.0.1"
+  },
+  "peerDependencies": {
+    "dompack": "^1.4.0"
   }
 }
