@@ -9,7 +9,7 @@
   "author": "B-Lex IT B.V.",
   "license": "MIT",
   "dependencies": {
-    "@webhare/dompack-carrousel": "0.0.1"
+    "@webhare/dompack-carrousel": "^0.1.0"
   },
   "peerDependencies": {
     "dompack": "^1.4.0"
