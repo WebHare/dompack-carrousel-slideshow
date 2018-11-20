@@ -1,7 +1,7 @@
 {
   "name": "@webhare/dompack-carrousel-slideshow",
   "description": "Slideshow build upon the dompack-carrousel",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "src/index.es",
   "scripts": {
     "test": "echo \"Not yet available\" && exit 1"

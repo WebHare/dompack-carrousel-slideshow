@@ -71,7 +71,10 @@ export default class CarrouselSlideshow
           , autoplay_freezeslideduration: 6000 // how long to keep the slide still (FIXME: should be after the transition) before going to the next
           //, autoplay_staypausedfor        // amount of time to keep frozen after a mouseover
           , transitionDuration:    1500
+
           , eventPassthrough:      true    // makes vertical scrolling keep on working (however at the moment it can cause textual selections)
+          , updateviewportheight:  false
+
           , jumpbuttons:           ".carrousel__jumpbutton" // FIXME
           , jumpbutton_selectedclass: "active" // FIXME
           , buttonprevious:        null
@@ -81,13 +84,17 @@ export default class CarrouselSlideshow
           , name:                  "slideshow" + window.__dompack_cslideshow_idx
           }, domoptions, options);
 
+    if (this.options.debug)
+      console.log("CarrouselSlideshow options", this.options);
+
     this.autoplaytimer = null;
+    this.playing = this.options.autoplay;
 
     this.carrousel = new Carrousel(node
         , { transitionDuration:   this.options.transitionDuration
           , eventPassthrough:     this.options.eventPassthrough
           , gap:                  0
-          , updateviewportheight: false
+          , updateviewportheight: this.options.updateviewportheight
           });
 
     this.jumpbuttonnodes = [];
@@ -125,7 +132,9 @@ export default class CarrouselSlideshow
 
     if (this.options.autoresize)
     {
-      console.info("AUTORESIZE enabled");
+      if (this.options.debug)
+        console.info("AUTORESIZE enabled");
+
       let bindedrefresh = this.relayoutSlides.bind(this);
       window.addEventListener("resize", bindedrefresh);
       document.addEventListener("DOMContentLoaded", bindedrefresh); // may help, but at this time the event might already have fired
@@ -135,7 +144,7 @@ export default class CarrouselSlideshow
     if (__observer)
       __observer.observe(node);
 
-    if (this.options.autoplay)
+    if (this.playing)
       this.__applyCurrentAutoplay(this.options.autoplay_initialdelay);
   }
 
@@ -166,6 +175,20 @@ export default class CarrouselSlideshow
     this.ignore_scroll = false;
   }
 
+
+  pause()
+  {
+    this.playing = false;
+    this.__applyCurrentAutoplay();
+  }
+
+  play()
+  {
+    this.playing = true;
+    this.__applyCurrentAutoplay();
+  }
+
+
   refresh()
   {
     this.relayoutSlides();
@@ -190,21 +213,7 @@ export default class CarrouselSlideshow
                 , "Slideshow in viewport", this.inviewport
                 );
 
-    if (document.hidden || !this.inviewport)
-    {
-      //if (this.options.debug)
-        console.log("hidden -> pause");
-
-      this.__pauseAutoplay();
-    }
-    else
-    {
-      //if (this.options.debug)
-        console.log("visible -> unpause");
-
-      if (!this.scrolling)
-        this.__unpauseAutoplay();
-    }
+    this.__applyCurrentAutoplay();
   }
 
   __onScrollStart(evt)
@@ -213,7 +222,7 @@ export default class CarrouselSlideshow
       return;
 
     this.scrolling = true;
-    this.__pauseAutoplay();
+    //this.__pauseAutoplay();
   }
 
   __onScrollEnd(evt)
@@ -222,29 +231,13 @@ export default class CarrouselSlideshow
       return;
 
     this.scrolling = false;
-
+/*
     // don't unpause if the document is hidden
     if (document.hidden)
       return;
 
     this.__unpauseAutoplay();
-  }
-
-  __pauseAutoplay()
-  {
-    if (this.options.debug)
-      console.log("__pauseAutoplay()", this.options.name, this.node);
-
-    clearTimeout(this.autoplaytimer);
-    this.autoplaytimer = null;
-  }
-
-  __unpauseAutoplay()
-  {
-    if (this.options.debug)
-      console.log("__unpauseAutoplay()", this.options.name, this.node);
-
-    this.__applyCurrentAutoplay();
+*/
   }
 
   __doJumpToSlide(idx)
@@ -264,13 +257,23 @@ export default class CarrouselSlideshow
     if (!delay)
       delay = 0;
 
+    // During scrolling we must finish the scroll.
+    // After the scroll has finished this function will be called again to schedule a slide change if needed.
+    if (this.scrolling)
+    {
+      if (this.options.debug)
+        console.log("Not scheduling or cancelling a slide during scrolling.")
+      return;
+    }
+
     //console.log(this.__nextSlideByTimer);
-    if (this.options.autoplay && !document.hidden && this.inviewport)
+    if (this.playing && !document.hidden && this.inviewport)
     {
       if (!this.autoplaytimer)
       {
         if (this.options.debug)
           console.log("Setting new timer for auto slide");
+
         this.autoplaytimer = setTimeout(this.__nextSlideByTimer.bind(this), this.options.autoplay_freezeslideduration + delay);
       }
       else if (this.options.debug)
@@ -278,8 +281,14 @@ export default class CarrouselSlideshow
     }
     else
     {
-      clearTimeout(this.autoplaytimer);
-      this.autoplaytimer = null;
+      if (this.options.debug)
+        console.log("No autoplay", { play: this.playing, dochidden: document.hidden, inviewport: this.inviewport });
+
+      if (this.autoplaytimer)
+      {
+        clearTimeout(this.autoplaytimer);
+        this.autoplaytimer = null;
+      }
     }
   }
 
