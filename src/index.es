@@ -90,12 +90,35 @@ export default class CarrouselSlideshow
     this.autoplaytimer = null;
     this.playing = this.options.autoplay;
 
-    this.carrousel = new Carrousel(node
-        , { transitionDuration:   this.options.transitionDuration
+
+    let carrousel_options =
+          { transitionDuration:   this.options.transitionDuration
           , eventPassthrough:     this.options.eventPassthrough
           , gap:                  0
           , updateviewportheight: this.options.updateviewportheight
-          });
+          };
+
+    if ("items" in this.options)
+      carrousel_options.items = this.options.items;
+
+    if (this.options.debug)
+      console.info("Carrousel options", carrousel_options);
+
+    this.carrousel = new Carrousel(node, carrousel_options);
+
+
+
+    let dragarea = this.carrousel.nodes.dragarea;
+
+    // For Firefox we need to cancel dragstart (otherwise <A> will be draggable)
+    dragarea.addEventListener("dragstart", evt => this.doHandleDragStart(evt) );
+
+    // We have cancel clicks and rely on iScroll's tap event,
+    // because clicks can be fired after scrolling.
+    dragarea.addEventListener("click", evt => this.doHandleLinkClick(evt) );
+    dragarea.addEventListener("tap", evt => this.doHandleLinkTap(evt) );
+
+
 
     this.jumpbuttonnodes = [];
     if (typeof this.options.jumpbuttons == "string")
@@ -105,7 +128,13 @@ export default class CarrouselSlideshow
 
 // ADDME: use tap if in carrousel viewport or click if outside
     for (let idx = 0; idx < this.jumpbuttonnodes.length; idx++)
-      this.jumpbuttonnodes[idx].addEventListener("tap", this.__doJumpToSlide.bind(this, idx));
+    {
+      // outside an iScroll container
+      this.jumpbuttonnodes[idx].addEventListener("click", evt => this.__doJumpToSlide(idx, evt));
+
+      // when within an iScroll container
+      this.jumpbuttonnodes[idx].addEventListener("tap", evt => this.__doJumpToSlide(idx, evt));
+    }
 
     if (this.options.buttonprevious)
       this.options.buttonprevious.addEventListener("click", this.__handlePrevButton.bind(this));
@@ -135,10 +164,10 @@ export default class CarrouselSlideshow
       if (this.options.debug)
         console.info("AUTORESIZE enabled");
 
-      let bindedrefresh = this.relayoutSlides.bind(this);
-      window.addEventListener("resize", bindedrefresh);
-      document.addEventListener("DOMContentLoaded", bindedrefresh); // may help, but at this time the event might already have fired
-      window.addEventListener("load", bindedrefresh); // Fix/workaround Safari reporting the wrong height for the first slide
+      this.bindedrefresh = this.relayoutSlides.bind(this);
+      window.addEventListener("resize", this.bindedrefresh);
+      document.addEventListener("DOMContentLoaded", this.bindedrefresh); // may help, but at this time the event might already have fired
+      window.addEventListener("load", this.bindedrefresh); // Fix/workaround Safari reporting the wrong height for the first slide
     }
 
     if (__observer)
@@ -146,6 +175,52 @@ export default class CarrouselSlideshow
 
     if (this.playing)
       this.__applyCurrentAutoplay(this.options.autoplay_initialdelay);
+  }
+
+
+
+  doHandleDragStart(evt)
+  {
+    // dragging stuff from inside a slideshow doesn't seem like a good thing to do
+    evt.preventDefault();
+  }
+
+  // Cancel the default browser click event, because it may fire during or after dragging using iScroll
+  doHandleLinkClick(evt)
+  {
+    let anchor = dompack.closest(evt.target, "a");
+    if (!anchor)
+      return;
+
+    evt.preventDefault();
+  }
+
+  // When iScroll reports it was a tap (not a drag action) we can safely trigger the anchor
+  doHandleLinkTap(evt)
+  {
+    // Are we in a link?
+    let anchor = dompack.closest(evt.target, "a");
+    if (!anchor)
+      return;
+
+    window.open(anchor.href, "_blank");
+  }
+
+
+  destroy()
+  {
+    clearTimeout(this.autoplaytimer);
+    this.autoplaytimer = null;
+    this.playing = false;
+
+    if (this.bindedrefresh)
+    {
+      window.removeEventListener("resize", this.bindedrefresh);
+      document.removeEventListener("DOMContentLoaded", this.bindedrefresh);
+      window.removeEventListener("load", this.bindedrefresh);
+    }
+
+    this.carrousel.destroy();
   }
 
   __determineInViewport(node)
@@ -168,7 +243,9 @@ export default class CarrouselSlideshow
 
   relayoutSlides()
   {
-    console.info("relayoutSlides");
+    if (this.options.debug)
+      console.info("relayoutSlides");
+
     this.ignore_scroll = true;
     this.carrousel.relayoutSlides();
     this.carrousel.refresh();
@@ -202,8 +279,13 @@ export default class CarrouselSlideshow
 
   onSlideChange(evt)
   {
-    this.jumpbuttonnodes[evt.detail.previousactiveidx].classList.remove(this.options.jumpbutton_selectedclass);
-    this.jumpbuttonnodes[evt.detail.nextactiveidx].classList.add(this.options.jumpbutton_selectedclass);
+    let count = this.jumpbuttonnodes.length;
+
+    if (count > evt.detail.previousactiveidx)
+      this.jumpbuttonnodes[evt.detail.previousactiveidx].classList.remove(this.options.jumpbutton_selectedclass);
+    
+    if (count > evt.detail.nextactiveidx)
+      this.jumpbuttonnodes[evt.detail.nextactiveidx].classList.add(this.options.jumpbutton_selectedclass);
   }
 
   __handleVisibilityChange()
@@ -240,9 +322,9 @@ export default class CarrouselSlideshow
 */
   }
 
-  __doJumpToSlide(idx)
+  __doJumpToSlide(idx, evt)
   {
-    console.log(idx);
+    evt.preventDefault();
 
     // FIXME: animation disabled, the carrousel should offer the ability to find the closes path to the image (forward or backwards) or the animation will look like crap
     //this.carrousel.jumpToSlide(idx, true, true);
